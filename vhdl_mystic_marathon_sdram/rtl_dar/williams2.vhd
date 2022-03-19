@@ -316,7 +316,7 @@ begin
 		
 			if (pixel_cnt = "101") and (en_pixel = '1' ) then
 				hcnt <= hcnt + '1';
-				if hcnt = "111111" then
+				if hcnt = "111101" then
 					if vcnt = '1'&X"FF" then
 						vcnt <= '0'&X"FC";
 					else
@@ -450,7 +450,7 @@ pia_io1_pb_i <= x"00";
 pia_io2_pa_i <= sw_coktail_table & "000" & btn_coin & btn_high_score_reset & btn_advance & btn_auto_up; 
 
 -- video syncs to pia
-vcnt_240  <= '0' when vcnt = '1'&X"F0" else '1';
+vcnt_240  <= '1' when vcnt = '1'&X"F0" else '0';
 cnt_4ms   <= vcnt(5);
 
 -- pia rom irqs to cpu
