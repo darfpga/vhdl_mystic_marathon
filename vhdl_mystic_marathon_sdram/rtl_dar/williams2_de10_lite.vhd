@@ -9,6 +9,13 @@
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
 ---------------------------------------------------------------------------------
+-- Version 0.1 -- 31/03/2022 -- 
+--   add color weight computation from latest Mame release (241)
+--   (despite I don't know where the truth is)
+--
+-- Version 0.0 -- 17/03/2022 -- 
+--	  initial version
+---------------------------------------------------------------------------------
 -- Use williams2_de10_lite.sdc to compile (Timequest constraints)
 ---------------------------------------------------------------------------------
 --
@@ -153,13 +160,16 @@ port (
 
 -- signal max3421e_clk : std_logic;
  
- signal r         : std_logic_vector(3 downto 0);
- signal g         : std_logic_vector(3 downto 0);
- signal b         : std_logic_vector(3 downto 0);
- signal intensity : std_logic_vector(3 downto 0);
- signal ri        : std_logic_vector(7 downto 0);
- signal gi        : std_logic_vector(7 downto 0);
- signal bi        : std_logic_vector(7 downto 0);
+ signal r,rs      : std_logic_vector( 3 downto 0);
+ signal g,gs      : std_logic_vector( 3 downto 0);
+ signal b,bs      : std_logic_vector( 3 downto 0);
+ signal intensity : std_logic_vector( 3 downto 0);
+ signal ri,rgs    : std_logic_vector( 7 downto 0);
+ signal gi,ggs    : std_logic_vector( 7 downto 0);
+ signal bi,bgs    : std_logic_vector( 7 downto 0);
+ signal rg        : std_logic_vector(15 downto 0);
+ signal gg        : std_logic_vector(15 downto 0);
+ signal bg        : std_logic_vector(15 downto 0);
  signal csync     : std_logic;
  signal blankn    : std_logic;
  
@@ -317,13 +327,67 @@ port map(
 
 );
 
-ri <= r*intensity;
-gi <= g*intensity;
-bi <= b*intensity;
+-------------------------------------
+-- Color palette Mame Informations --
+-------------------------------------
+--
+-- Normal values (turkey shoot, inferno, joust2)
 
-vga_r <= ri(7 downto 4) when blankn = '1' else "0000";
-vga_g <= gi(7 downto 4) when blankn = '1' else "0000";
-vga_b <= bi(7 downto 4) when blankn = '1' else "0000";
+--          red    green  blue  
+-- gain(  { 0.25f, 0.25f, 0.25f }),
+-- offset({ 0.00f, 0.00f, 0.00f })
+
+-- Modified value (mystic marathon)
+
+-- gain =   {   0.8f, 0.73f,  0.81f };
+-- offset = { -0.27f, 0.00f, -0.22f };
+
+-- Computation (video/williams.cpp)
+-- color_1 = max(color_in + offset   , 0)
+-- color_2 = min(color_1  * gain/0.25, 1)
+-- with color_in max value = 1
+
+-- because of gain/0.25 is ~3 output value may be much higher than 1
+-- applying  min(x, 1) will strangely saturate/limit result
+
+-- Here by, color_in max value = 15 (before intensity)
+-- => red   offset = -0.27*15 = 4.050 let's assume value 5
+-- => green offset = -0.00*15 = 0.000 let's assume value 0
+-- => blue  offset = -0.22*15 = 3.300 let's assume value 3
+
+-- red   gain = 3.20 rescaled to 127/3.24 => 125.4 let's assume value 125
+-- green gain = 2.92 rescaled to 127/3.24 => 114.5 let's assume value 114
+-- blue  gain = 3.24 rescaled to 127/3.24 => 127.0 let's assume value 127
+
+-- After intensity and gain, limit should be 256*128/3.24 = 10922
+-- limiting to this value gives wrong results so I choose not to
+-- apply limitation (limit to 256*128 = 32768).
+
+-- apply offset and max(x, 0)
+rs <= r-x"5" when r > x"5" else x"0";
+gs <= g-x"0" when g > x"0" else x"0";
+bs <= b-x"3" when b > x"3" else x"0";
+
+-- apply intensity
+ri <= rs*intensity;
+gi <= gs*intensity;
+bi <= bs*intensity;
+
+-- apply gain and limit
+-- in fact limit cannot be reached, anyway I keep the limiting function
+-- here for whos who want to try it
+rg <= ri*x"7D" when ri*x"7D" < x"7FFF" else x"7FFF";
+gg <= gi*x"72" when gi*x"72" < x"7FFF" else x"7FFF";
+bg <= bi*x"7F" when bi*x"7F" < x"7FFF" else x"7FFF";
+
+-- allow selection to real_time compare results with/without modification
+rgs <= rg(14 downto 7) when sw(9) = '0' else r*intensity;
+ggs <= gg(14 downto 7) when sw(9) = '0' else g*intensity;
+bgs <= bg(14 downto 7) when sw(9) = '0' else b*intensity;
+
+vga_r <= rgs(7 downto 4) when blankn = '1' else "0000";
+vga_g <= ggs(7 downto 4) when blankn = '1' else "0000";
+vga_b <= bgs(7 downto 4) when blankn = '1' else "0000";
 
 -- synchro composite/ synchro horizontale
 vga_hs <= csync;

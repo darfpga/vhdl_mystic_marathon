@@ -22,8 +22,11 @@
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
 ---------------------------------------------------------------------------------
+-- Version 0.1 -- 31/03/2022 -- 
+--   add ic79 background low color bank bit controls
+--
 -- Version 0.0 -- 17/03/2022 -- 
---		    initial version
+--	  initial version
 ---------------------------------------------------------------------------------
 --  Features :
 --   TV 15KHz mode only (atm)
@@ -257,6 +260,11 @@ architecture struct of williams2 is
  
  signal sound_cpu_addr : std_logic_vector(15 downto 0);
 
+ signal ic79_a   : std_logic_vector(3 downto 0);
+ signal ic79_b   : std_logic_vector(3 downto 0);  
+ signal ic79_out : std_logic;
+
+
 begin
 
 -- for debug
@@ -388,14 +396,18 @@ bg_pixels_shifted <=
 	bg_pixels_2 when "101",
 	bg_pixels_1 when "110",
 	bg_pixels_0 when others;
+
+-- ic79 74LS85 controls low background color bank bit w.r.t ligne number (vcnt)
+ic79_a   <= bg_color_bank(0) & bg_color_bank(0) & "01";
+ic79_b   <= "00"&vcnt(7)&vcnt(6);
+ic79_out <= '1' when (ic79_a > ic79_b) or ((ic79_a = ic79_b) and (vcnt(5)='0')) else '0';
 	
 --	mux bus addr and pixels data to palette addr
 palette_addr <=
 	addr_bus(10 downto 1) when color_cs = '1' else 
 	fg_color_bank & fg_pixels_0 when fg_pixels_0 /= x"0" else
-	bg_color_bank(5 downto 1) & '1' & bg_pixels_shifted when vcnt(7 downto 5) < "011" else
-	bg_color_bank(5 downto 1) & '0' & bg_pixels_shifted;
-	
+	bg_color_bank(5 downto 3) & bg_color_bank(1) & bg_color_bank(2) & ic79_out & bg_pixels_shifted;
+		
 -- palette output to colors bits
 video_r <= palette_lo_do(3 downto 0);
 video_g <= palette_lo_do(7 downto 4);
