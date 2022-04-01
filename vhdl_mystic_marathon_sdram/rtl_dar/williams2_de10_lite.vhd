@@ -9,7 +9,7 @@
 -- Do not redistribute roms whatever the form
 -- Use at your own risk
 ---------------------------------------------------------------------------------
--- Version 0.1 -- 31/03/2022 -- 
+-- Version 0.1b -- 31/03/2022 -- 
 --   add color weight computation from latest Mame release (241)
 --   (despite I don't know where the truth is)
 --
@@ -160,13 +160,13 @@ port (
 
 -- signal max3421e_clk : std_logic;
  
- signal r,rs      : std_logic_vector( 3 downto 0);
- signal g,gs      : std_logic_vector( 3 downto 0);
- signal b,bs      : std_logic_vector( 3 downto 0);
+ signal r         : std_logic_vector( 3 downto 0);
+ signal g         : std_logic_vector( 3 downto 0);
+ signal b         : std_logic_vector( 3 downto 0);
  signal intensity : std_logic_vector( 3 downto 0);
- signal ri,rgs    : std_logic_vector( 7 downto 0);
- signal gi,ggs    : std_logic_vector( 7 downto 0);
- signal bi,bgs    : std_logic_vector( 7 downto 0);
+ signal ri,ro,rgs : std_logic_vector( 7 downto 0);
+ signal gi,go,ggs : std_logic_vector( 7 downto 0);
+ signal bi,bo,bgs : std_logic_vector( 7 downto 0);
  signal rg        : std_logic_vector(15 downto 0);
  signal gg        : std_logic_vector(15 downto 0);
  signal bg        : std_logic_vector(15 downto 0);
@@ -363,22 +363,23 @@ port map(
 -- limiting to this value gives wrong results so I choose not to
 -- apply limitation (limit to 256*128 = 32768).
 
--- apply offset and max(x, 0)
-rs <= r-x"5" when r > x"5" else x"0";
-gs <= g-x"0" when g > x"0" else x"0";
-bs <= b-x"3" when b > x"3" else x"0";
 
 -- apply intensity
-ri <= rs*intensity;
-gi <= gs*intensity;
-bi <= bs*intensity;
+ri <= r*intensity;
+gi <= g*intensity;
+bi <= b*intensity;
+
+-- apply offset and max(x, 0)
+ro <= ri-x"50" when ri > x"50" else x"00";
+go <= gi-x"00" when gi > x"00" else x"00";
+bo <= bi-x"30" when bi > x"30" else x"00";
 
 -- apply gain and limit
 -- in fact limit cannot be reached, anyway I keep the limiting function
 -- here for whos who want to try it
-rg <= ri*x"7D" when ri*x"7D" < x"7FFF" else x"7FFF";
-gg <= gi*x"72" when gi*x"72" < x"7FFF" else x"7FFF";
-bg <= bi*x"7F" when bi*x"7F" < x"7FFF" else x"7FFF";
+rg <= ro*x"7D" when ro*x"7D" < x"7FFF" else x"7FFF";
+gg <= go*x"72" when go*x"72" < x"7FFF" else x"7FFF";
+bg <= bo*x"7F" when bo*x"7F" < x"7FFF" else x"7FFF";
 
 -- allow selection to real_time compare results with/without modification
 rgs <= rg(14 downto 7) when sw(9) = '0' else r*intensity;
